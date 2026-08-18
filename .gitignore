@@ -1,0 +1,5 @@
+.env
+uploads/
+.vscode/
+.idea/
+.DS_Store
