@@ -24,3 +24,17 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
         ),
     )
     return [embedding.values for embedding in result.embeddings]
+
+
+async def embed_query(text: str) -> list[float]:
+    """Embed a single search query. Uses RETRIEVAL_QUERY task type, which
+    Gemini tunes differently from RETRIEVAL_DOCUMENT (used for ingestion)."""
+    result = await _client.aio.models.embed_content(
+        model=settings.embedding_model,
+        contents=[text],
+        config=EmbedContentConfig(
+            task_type="RETRIEVAL_QUERY",
+            output_dimensionality=EMBEDDING_DIM,
+        ),
+    )
+    return result.embeddings[0].values
