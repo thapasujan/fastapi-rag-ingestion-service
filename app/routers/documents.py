@@ -14,6 +14,15 @@ from app.services.chunking import ChunkingStrategyName, get_chunker
 from app.services.embeddings import embed_texts
 from app.services.vector_store import ensure_collection, upsert_chunks
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Depends
+
+from app.core.database import get_db
+from app.models.document import Document
+
+from sqlalchemy import select
+from app.schemas.document import DocumentOut
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 settings = get_settings()
@@ -25,6 +34,7 @@ ALLOWED_EXTENSIONS = {".pdf", ".txt"}
 async def upload_document(
     file: UploadFile = File(...),
     strategy: ChunkingStrategyName = ChunkingStrategyName.FIXED_SIZE,
+    db: AsyncSession = Depends(get_db),
 ) -> DocumentUploadResponse:
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -55,9 +65,28 @@ async def upload_document(
 
     print(f"Stored {len(vectors)} vectors in Qdrant for document {doc_id}")
 
+    document = Document(
+        id=doc_id,
+        filename=file.filename,
+        file_type=ext.lstrip("."),
+        chunking_strategy=strategy.value,
+        chunk_count=len(chunks),
+    )
+    db.add(document)
+    await db.commit()
+    await db.refresh(document)
+
+    print(f"Saved metadata to Postgres for document {doc_id}")
+
     return DocumentUploadResponse(
         id=doc_id,
         filename=file.filename,
         file_type=ext.lstrip("."),
         message=f"File processed: {len(chunks)} chunks created using '{strategy}' strategy.",
     )
+
+
+@router.get("", response_model=list[DocumentOut])
+async def list_documents(db: AsyncSession = Depends(get_db)) -> list[Document]:
+    result = await db.execute(select(Document).order_by(Document.created_at.desc()))
+    return list(result.scalars().all())
