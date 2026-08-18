@@ -11,6 +11,9 @@ from app.services.extraction import extract_text
 
 from app.services.chunking import ChunkingStrategyName, get_chunker
 
+from app.services.embeddings import embed_texts
+from app.services.vector_store import ensure_collection, upsert_chunks
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 settings = get_settings()
@@ -45,6 +48,12 @@ async def upload_document(
     chunks = chunker.chunk(extracted_text)
 
     print(f"Extracted {len(extracted_text)} chars, split into {len(chunks)} chunks using '{strategy.value}'")
+
+    await ensure_collection()
+    vectors = await embed_texts(chunks)
+    await upsert_chunks(doc_id, chunks, vectors)
+
+    print(f"Stored {len(vectors)} vectors in Qdrant for document {doc_id}")
 
     return DocumentUploadResponse(
         id=doc_id,
