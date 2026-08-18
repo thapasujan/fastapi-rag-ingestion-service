@@ -7,6 +7,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from app.core.config import get_settings
 from app.schemas.document import DocumentUploadResponse
 
+from app.services.extraction import extract_text
+
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 settings = get_settings()
@@ -29,9 +31,17 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
     with open(save_path, "wb") as f:
         f.write(contents)
 
+    try:
+        extracted_text = await extract_text(str(save_path), ext.lstrip("."))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    #print line to show the number of characters extracted from the uploaded file
+    print(f"Extracted {len(extracted_text)} characters from {file.filename}")
+
     return DocumentUploadResponse(
         id=doc_id,
         filename=file.filename,
         file_type=ext.lstrip("."),
-        message="File uploaded successfully. Processing not yet implemented.",
+        message="File uploaded and text extracted successfully.",
     )
