@@ -1,21 +1,17 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class ChatRequest(BaseModel):
-    session_id: str
-    message: str
+    session_id: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1)
 
+    @field_validator("session_id", "message")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("must not be blank")
+        return v
 
-class RetrievedChunk(BaseModel):
-    text: str
-    document_id: str
-    score: float
-
-
-class ChatDebugResponse(BaseModel):
-    """Temporary response for testing retrieval alone, before generation is wired in."""
-    query: str
-    retrieved_chunks: list[RetrievedChunk]
 
 class ChatResponse(BaseModel):
     session_id: str

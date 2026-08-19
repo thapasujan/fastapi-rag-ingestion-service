@@ -11,7 +11,6 @@ EMBEDDING_DIM = 768
 
 
 async def embed_texts(texts: list[str]) -> list[list[float]]:
-    
     if not texts:
         return []
 
@@ -23,12 +22,12 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
             output_dimensionality=EMBEDDING_DIM,
         ),
     )
-    return [embedding.values for embedding in result.embeddings]
+    if result.embeddings is None:
+        raise ValueError("Embedding API returned no embeddings")
+    return [e.values for e in result.embeddings if e.values is not None]
 
 
 async def embed_query(text: str) -> list[float]:
-    """Embed a single search query. Uses RETRIEVAL_QUERY task type, which
-    Gemini tunes differently from RETRIEVAL_DOCUMENT (used for ingestion)."""
     result = await _client.aio.models.embed_content(
         model=settings.embedding_model,
         contents=[text],
@@ -37,4 +36,6 @@ async def embed_query(text: str) -> list[float]:
             output_dimensionality=EMBEDDING_DIM,
         ),
     )
+    if result.embeddings is None or result.embeddings[0].values is None:
+        raise ValueError("Embedding API returned no embedding for query")
     return result.embeddings[0].values

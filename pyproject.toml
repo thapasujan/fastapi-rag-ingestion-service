@@ -18,3 +18,8 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.52",
     "uvicorn[standard]>=0.52.3",
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+]

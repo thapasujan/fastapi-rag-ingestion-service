@@ -36,6 +36,9 @@ async def upload_document(
     strategy: ChunkingStrategyName = ChunkingStrategyName.FIXED_SIZE,
     db: AsyncSession = Depends(get_db),
 ) -> DocumentUploadResponse:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is missing")
+    
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Only .pdf and .txt files are allowed")
@@ -57,13 +60,19 @@ async def upload_document(
     chunker = get_chunker(strategy)
     chunks = chunker.chunk(extracted_text)
 
-    print(f"Extracted {len(extracted_text)} chars, split into {len(chunks)} chunks using '{strategy.value}'")
+    # print(f"Extracted {len(extracted_text)} chars, split into {len(chunks)} chunks using '{strategy.value}'")
 
-    await ensure_collection()
-    vectors = await embed_texts(chunks)
-    await upsert_chunks(doc_id, chunks, vectors)
+    try:
+        await ensure_collection()
+        vectors = await embed_texts(chunks)
+        await upsert_chunks(doc_id, chunks, vectors)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate embeddings or store vectors: {str(e)}",
+        )
 
-    print(f"Stored {len(vectors)} vectors in Qdrant for document {doc_id}")
+    # print(f"Stored {len(vectors)} vectors in Qdrant for document {doc_id}")
 
     document = Document(
         id=doc_id,
@@ -76,7 +85,7 @@ async def upload_document(
     await db.commit()
     await db.refresh(document)
 
-    print(f"Saved metadata to Postgres for document {doc_id}")
+    # print(f"Saved metadata to Postgres for document {doc_id}")
 
     return DocumentUploadResponse(
         id=doc_id,

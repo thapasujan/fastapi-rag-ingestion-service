@@ -9,7 +9,7 @@ settings = get_settings()
 
 _client = AsyncQdrantClient(host=settings.qdrant_host, port=settings.qdrant_port)
 
-EMBEDDING_DIM = 768  # Gemini text-embedding-004 output dimension
+EMBEDDING_DIM = 768
 
 
 async def ensure_collection() -> None:
@@ -47,13 +47,17 @@ async def upsert_chunks(
 
 
 async def search_similar(query_vector: list[float], top_k: int = 5) -> list[dict]:
-
     results = await _client.query_points(
         collection_name=settings.qdrant_collection_name,
         query=query_vector,
         limit=top_k,
     )
-    return [
-        {"text": point.payload["text"], "document_id": point.payload["document_id"], "score": point.score}
-        for point in results.points
-    ]
+    output = []
+    for point in results.points:
+        if point.payload is not None:
+            output.append({
+                "text": point.payload["text"],
+                "document_id": point.payload["document_id"],
+                "score": point.score,
+            })
+    return output
